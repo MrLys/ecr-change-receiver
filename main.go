@@ -27,8 +27,24 @@ type Secrets struct {
 	CurrentKey string
 	mutex      sync.Mutex
 }
+type WatchedImage struct {
+	RepositoryName   string
+	RepositoryUri    string
+	ImageTag         string
+	StartTime        time.Time
+	PreviousImageTag string
+	mutex            sync.Mutex
+}
+type RateLimit struct {
+	remateAddr string
+	limit      int
+	start      time.Time
+}
 
 var currentSecrets = Secrets{}
+
+var watchedImages = map[string]WatchedImage{}
+var rateLimits sync.Map
 
 func (s *Secrets) authorizeRequest(r *http.Request) bool {
 	bearer := r.Header.Get("Bearer")
@@ -67,7 +83,7 @@ func (s *Secrets) rotateKey() {
 	s.uploadCurrentKeyToSecretManager()
 }
 
-func listContianers() {
+func listContainers(images []string) {
 	apiClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		panic(err)
@@ -82,6 +98,22 @@ func listContianers() {
 	fmt.Printf("Containers(%d):\n", len(containers))
 	fmt.Println("-----------")
 	for _, ctr := range containers {
+		if ctr.Image == "" {
+			continue
+		}
+		for _, image := range images {
+			if ctr.Image == image {
+				// we assume these are not initialized here, so no need to lock
+				watchedImages[image] = WatchedImage{
+					RepositoryName:   image,
+					RepositoryUri:    image,
+					ImageTag:         ctr.Image,
+					StartTime:        time.Now(),
+					PreviousImageTag: "",
+					mutex:            sync.Mutex{},
+				}
+			}
+		}
 		fmt.Printf("%s %s %s (status: %s)\n", ctr.ID, ctr.Image, ctr.Names, ctr.Status)
 	}
 }
@@ -104,11 +136,42 @@ func manageSecrets() {
 	}()
 }
 
+func rateLimitsExceeded(remateAddr string) bool {
+	limit, ok := rateLimits.Load(remateAddr)
+	if limit == nil || !ok {
+		rateLimit := RateLimit{remateAddr, 1, time.Now()}
+		rateLimits.Store(remateAddr, rateLimit)
+		return false
+	}
+	rateLimit := limit.(RateLimit)
+	// reset if more than 1 minute has passed
+	if time.Since(rateLimit.start) > 1*time.Minute {
+		rateLimit.start = time.Now()
+		rateLimit.limit = 1
+		rateLimits.Store(remateAddr, rateLimit)
+	} else if rateLimit.limit > 30 {
+		// rate limit exceeded
+		return true
+	} else {
+		// increment the limit
+		rateLimit.limit++
+		// update time to nearest minute
+		rateLimit.start = time.Now().Truncate(time.Minute)
+		rateLimits.Store(remateAddr, rateLimit)
+	}
+
+	return false
+}
+
 func main() {
 	config := Config{}
 	config.init()
+	images := make([]string, len(config.WatchedImages))
+	for i, image := range config.WatchedImages {
+		images[i] = image.RepositoryName
+	}
 
-	listContianers()
+	listContainers(images)
 	manageSecrets()
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -117,6 +180,11 @@ func main() {
 
 	http.HandleFunc("/update", func(w http.ResponseWriter, r *http.Request) {
 		// Parse the request body
+		if rateLimitsExceeded(r.RemoteAddr) {
+			http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
+			return
+		}
+
 		defer r.Body.Close()
 
 		var event MyEvent

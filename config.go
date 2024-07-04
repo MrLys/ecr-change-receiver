@@ -8,9 +8,9 @@ import (
 
 type Config struct {
 	// Port is the port on which the server listens for incoming requests.
-	watchedImages []struct {
-		// SecretName is the name of the secret in AWS Secrets Manager that contains the current key.
-		SecretName string `yaml:"secretName"`
+	// SecretName is the name of the secret in AWS Secrets Manager that contains the current key.
+	SecretName    string `yaml:"secretName"`
+	WatchedImages []struct {
 		// RepositoryName is the name of the ECR repository.
 		RepositoryName string `yaml:"repositoryName"`
 		// repositoryUri is the URI of the ECR repository.
