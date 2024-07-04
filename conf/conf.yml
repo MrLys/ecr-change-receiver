@@ -1,0 +1,16 @@
+#	watchedImages []struct {
+# 	// SecretName is the name of the secret in AWS Secrets Manager that contains the current key.
+# 	SecretName string `yaml:"secretName"`
+# 	// RepositoryName is the name of the ECR repository.
+# 	RepositoryName string `yaml:"repositoryName"`
+# 	// repositoryUri is the URI of the ECR repository.
+# 	repositoryUri string `yaml:"repositoryUri"`
+# } `yaml:"watchedImages"`
+
+watchedImages:
+  - secretName: "my-secret"
+    repositoryName: "my-repo"
+    repositoryUri: "123456789012.dkr.ecr.us-west-2.amazonaws.com/my-repo"
+  - secretName: "my-secret-2"
+    repositoryName: "my-repo-2"
+    repositoryUri: "123456789012.dkr.ecr.us-west-2.amazonaws.com/my-repo-2"
