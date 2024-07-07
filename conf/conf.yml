@@ -8,9 +8,10 @@
 # } `yaml:"watchedImages"`
 
 watchedImages:
-  - secretName: "my-secret"
-    repositoryName: "my-repo"
-    repositoryUri: "123456789012.dkr.ecr.us-west-2.amazonaws.com/my-repo"
-  - secretName: "my-secret-2"
-    repositoryName: "my-repo-2"
-    repositoryUri: "123456789012.dkr.ecr.us-west-2.amazonaws.com/my-repo-2"
+  - repositoryName: "/my-repo-1"
+    repositoryUri: "123456789013.dkr.ecr.us-west-2.amazonaws.com"
+    imageTagPrefix: "staging-"
+
+  - repositoryName: "/my-repo-2"
+    repositoryUri: "123456789012.dkr.ecr.us-west-2.amazonaws.com"
+    imageTagPrefix: "dev-"
