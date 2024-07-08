@@ -41,15 +41,15 @@ func (a *AwsClient) GetAuthStr() (string, error) {
 
 	return base64.URLEncoding.EncodeToString(jsonBytes), nil
 }
+
 func (a *AwsClient) getAuthorizationToken() (string, error) {
 	resp, err := a.client.GetAuthorizationToken(context.TODO(), &ecr.GetAuthorizationTokenInput{})
-
 	if err != nil {
 		return "", err
 	}
 
 	if len(resp.AuthorizationData) == 0 {
-		return "", errors.New("No authorization data in response")
+		return "", errors.New("no authorization data in response")
 	}
 
 	return *resp.AuthorizationData[0].AuthorizationToken, nil
@@ -63,7 +63,7 @@ func tokenFromAuthStr(authStr string) (string, string, error) {
 
 	parts := strings.Split(string(decodedToken), ":")
 	if len(parts) != 2 {
-		return "", "", errors.New("Invalid token format")
+		return "", "", errors.New("invalid token format")
 	}
 	return parts[0], parts[1], nil
 }
@@ -72,4 +72,8 @@ func NewAwsClient(client *ecr.Client) *AwsClient {
 	return &AwsClient{
 		client: client,
 	}
+}
+
+func (a *AwsClient) Close() {
+	// nothing to close atm
 }
