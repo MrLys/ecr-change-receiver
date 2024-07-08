@@ -6,7 +6,11 @@ COPY ./conf/conf.yml ./conf/conf.yml
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
+
 COPY *.go ./
-RUN CGO_ENABLED=0 GOOS=linux go build -o /ecr-webhook-receiver
+# Copy the entire current directory to the Working Directory inside the container
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux go build -o ecr-webhook-receiver
 EXPOSE 8080
-CMD ["/ecr-webhook-receiver"]
+CMD ["./ecr-webhook-receiver"]

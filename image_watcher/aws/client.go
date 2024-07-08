@@ -7,6 +7,8 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
@@ -14,6 +16,8 @@ import (
 
 type AwsClient struct {
 	client *ecr.Client
+	token  string
+	mutex  sync.Mutex
 	log    *slog.Logger
 }
 
@@ -43,6 +47,23 @@ func (a *AwsClient) GetAuthStr() (string, error) {
 }
 
 func (a *AwsClient) getAuthorizationToken() (string, error) {
+	if a.token == "" {
+		return "", errors.New("No token available")
+	}
+	return a.token, nil
+}
+func (a *AwsClient) UpdateToken() error {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	token, err := a.retrieveToken()
+	if err != nil {
+		return err
+	}
+	a.token = token
+	return nil
+}
+
+func (a *AwsClient) retrieveToken() (string, error) {
 	resp, err := a.client.GetAuthorizationToken(context.TODO(), &ecr.GetAuthorizationTokenInput{})
 	if err != nil {
 		return "", err
@@ -67,11 +88,29 @@ func tokenFromAuthStr(authStr string) (string, string, error) {
 	}
 	return parts[0], parts[1], nil
 }
+func (a *AwsClient) startTokenRefresh() {
+	// Refresh token every 11 hours (1 hour before it expires)
+	ticker := time.NewTicker(11 * time.Hour)
+	defer ticker.Stop()
 
+	for {
+		select {
+		case <-ticker.C:
+			err := a.UpdateToken()
+			if err != nil {
+				a.log.Error("Failed to refresh authorization token", err.Error(), "\n")
+				continue
+			}
+			a.log.Info("Refreshed token: ")
+		}
+	}
+}
 func NewAwsClient(client *ecr.Client) *AwsClient {
-	return &AwsClient{
+	awsClient := &AwsClient{
 		client: client,
 	}
+	go awsClient.startTokenRefresh()
+	return awsClient
 }
 
 func (a *AwsClient) Close() {
