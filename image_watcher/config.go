@@ -21,10 +21,15 @@ type Config struct {
 	WatchedImages []WatchedImageConfig `yaml:"watchedImages"`
 }
 
-func (c *Config) init() {
+func newConfig() *Config {
+	c := &Config{}
 	data, err := os.ReadFile("./conf/conf.yml")
 	if err != nil {
 		panic(err)
 	}
-	yaml.Unmarshal(data, c)
+	err = yaml.Unmarshal(data, c)
+	if err != nil {
+		panic(err)
+	}
+	return c
 }

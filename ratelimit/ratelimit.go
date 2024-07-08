@@ -30,8 +30,8 @@ func (r *RateLimiter) RateLimitsExceeded(remateAddr string) bool {
 	rateLimit.start = time.Now().Truncate(time.Minute)
 	r.rateLimits.Store(remateAddr, rateLimit)
 	return false
-
 }
+
 func checkRateLimit(rl *rateLimitEntry, r *RateLimiter) bool {
 	rl.limit++
 	if time.Since(rl.start) > 1*time.Minute {

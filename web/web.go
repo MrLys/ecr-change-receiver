@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"ljos.app/ecr-change-receiver/aws"
 	image_watcher "ljos.app/ecr-change-receiver/image_watcher"
 	"ljos.app/ecr-change-receiver/ratelimit"
 	secrets "ljos.app/ecr-change-receiver/secrets"
@@ -33,6 +34,7 @@ func (w *Web) authorizeRequest(r *http.Request) bool {
 	bearer = bearer[7:] // Remove "Bearer " prefix
 	return true         // w.secretmanager.Validate(bearer)
 }
+
 func (w *Web) Close() {
 	w.imageWatcher.Close()
 	w.secretmanager.Close()
@@ -40,8 +42,10 @@ func (w *Web) Close() {
 
 func NewWeb(awsAccessKeyId, awsSecretAccessKey, region, secretName string) *Web {
 	web := &Web{}
-	web.imageWatcher = image_watcher.NewImageWatcher(region)
-	ss, err := secrets.NewSecretManager(awsAccessKeyId, awsSecretAccessKey, region, secretName)
+
+	awsClient := aws.NewAwsClient(aws.CreateEcrClient())
+	web.imageWatcher = image_watcher.NewImageWatcher(region, awsClient)
+	ss, err := secrets.NewSecretManager(aws.CreateSecretsManagerClient(region), region, secretName)
 	slog.Info("Secret manager created")
 	if err != nil {
 		panic(err)
@@ -50,6 +54,7 @@ func NewWeb(awsAccessKeyId, awsSecretAccessKey, region, secretName string) *Web 
 	web.secretmanager = ss
 	return web
 }
+
 func (w *Web) handleWebhook(event MyEvent) {
 	slog.Info("Received event")
 	// Handle the webhook event
@@ -73,7 +78,6 @@ func (w *Web) handleWebhook(event MyEvent) {
 	//image.ImageTag = event.Detail.ImageTag
 	//image.StartTime = time.Now()
 	//watchedImages.Store(event.Detail.RepositoryName, image)
-
 }
 
 func (w *Web) Start() {
@@ -99,7 +103,6 @@ func (w *Web) Start() {
 		}
 		var event MyEvent
 		err := json.NewDecoder(r.Body).Decode(&event)
-
 		if err != nil {
 			http.Error(rw, "Failed to parse request body", http.StatusBadRequest)
 			return

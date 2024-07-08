@@ -5,7 +5,6 @@ go 1.22.2
 require (
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.30.1
 	github.com/docker/docker v27.0.3+incompatible
-	google.golang.org/protobuf v1.34.2
 	gopkg.in/yaml.v3 v3.0.1
 )
 

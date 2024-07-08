@@ -5,10 +5,11 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	dockerClient "github.com/docker/docker/client"
-	"ljos.app/ecr-change-receiver/image_watcher/aws"
+	"ljos.app/ecr-change-receiver/aws"
 )
 
 type DockerClient struct {
@@ -30,8 +31,41 @@ func NewDockerClient(awsClient *aws.AwsClient) *DockerClient {
 	}
 }
 
+func (d *DockerClient) StopContainer(containerID string) bool {
+
+	err := d.apiClient.ContainerStop(context.Background(), containerID, container.StopOptions{})
+	if err != nil {
+		d.log.Error("StopContainer - Failed to stop container:", "error", err)
+		return false
+	}
+	d.log.Info("StopContainer - Container stopped successfully", "containerID", containerID)
+	return true
+}
+
+func (d *DockerClient) RemoveContainer(containerID string) bool {
+	err := d.apiClient.ContainerRemove(context.Background(), containerID, container.RemoveOptions{})
+	if err != nil {
+		d.log.Error("RemoveContainer - Failed to remove container:", "error", err)
+		return false
+	}
+	d.log.Info("RemoveContainer - Container removed successfully", "containerID", containerID)
+	return true
+}
+
+func (d *DockerClient) StartContainer(containerID string) bool {
+	err := d.apiClient.ContainerStart(context.Background(), containerID, container.StartOptions{})
+	if err != nil {
+		d.log.Error("StartContainer - Failed to start container:", "error", err)
+		return false
+	}
+	d.log.Info("StartContainer - Container started successfully", "containerID", containerID)
+	return true
+}
+
 func (d *DockerClient) CreateContainer(refString string) (string, bool) {
-	resp, err := d.apiClient.ContainerCreate(context.Background(), &container.Config{}, &container.HostConfig{}, nil, nil, refString)
+	resp, err := d.apiClient.ContainerCreate(context.Background(), &container.Config{
+		Image: refString,
+	}, &container.HostConfig{}, nil, nil, refString)
 	if err != nil {
 		d.log.Error("CreateContainer - Failed to create container:", "error", err)
 		return "", false
@@ -58,4 +92,18 @@ func (d *DockerClient) PullImage(refString string) bool {
 	defer res.Close()
 	d.log.Info("PullImage - Image pulled successfully", "image", refString)
 	return true
+}
+func (d *DockerClient) ListContainer() ([]types.Container, bool) {
+
+	containers, err := d.apiClient.ContainerList(context.Background(), container.ListOptions{All: true})
+	if err != nil {
+		d.log.Error("ListContainer - Failed to list containers:", "error", err)
+		return nil, false
+	}
+	d.log.Info("ListContainer - Containers listed successfully")
+	return containers, true
+}
+
+func (d *DockerClient) Close() {
+	d.apiClient.Close()
 }

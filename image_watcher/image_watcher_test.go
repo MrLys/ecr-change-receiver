@@ -88,5 +88,4 @@ func TestImageWatcherInitialize(t *testing.T) {
 			t.Errorf("Expected to find /image1:ljos-dev")
 		}
 	}
-
 }

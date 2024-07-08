@@ -6,21 +6,34 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 )
 
 type AwsClient struct {
-	client *ecr.Client
-	token  string
-	mutex  sync.Mutex
-	log    *slog.Logger
+	client  *ecr.Client
+	token   string
+	authStr string
+	mutex   sync.Mutex
+	log     *slog.Logger
 }
 
+func CreateSecretsManagerClient(region string) *secretsmanager.Client {
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion(region),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	return secretsmanager.NewFromConfig(cfg)
+}
 func CreateEcrClient() *ecr.Client {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
@@ -30,11 +43,14 @@ func CreateEcrClient() *ecr.Client {
 }
 
 func (a *AwsClient) GetAuthStr() (string, error) {
-	resp, err := a.getAuthorizationToken()
-	if err != nil {
-		return "", err
+	if a.authStr == "" {
+		return "", errors.New("No authStr available")
 	}
-	username, pwd, err := tokenFromAuthStr(resp)
+	return a.authStr, nil
+}
+
+func (a *AwsClient) toAuthStr(token string) (string, error) {
+	username, pwd, err := tokenFromAuthStr(token)
 	if err != nil {
 		return "", err
 	}
@@ -44,6 +60,7 @@ func (a *AwsClient) GetAuthStr() (string, error) {
 	})
 
 	return base64.URLEncoding.EncodeToString(jsonBytes), nil
+
 }
 
 func (a *AwsClient) getAuthorizationToken() (string, error) {
@@ -60,6 +77,12 @@ func (a *AwsClient) UpdateToken() error {
 		return err
 	}
 	a.token = token
+	authStr, err := a.toAuthStr(token)
+	if err != nil {
+		return err
+	}
+	a.authStr = authStr
+
 	return nil
 }
 
@@ -88,7 +111,15 @@ func tokenFromAuthStr(authStr string) (string, string, error) {
 	}
 	return parts[0], parts[1], nil
 }
+
 func (a *AwsClient) startTokenRefresh() {
+
+	err := a.UpdateToken()
+	if err != nil {
+		a.log.Error("Failed to refresh authorization token", err.Error(), "\n")
+	} else {
+		a.log.Info("Refreshed token")
+	}
 	// Refresh token every 11 hours (1 hour before it expires)
 	ticker := time.NewTicker(11 * time.Hour)
 	defer ticker.Stop()
@@ -105,9 +136,12 @@ func (a *AwsClient) startTokenRefresh() {
 		}
 	}
 }
+
 func NewAwsClient(client *ecr.Client) *AwsClient {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	awsClient := &AwsClient{
 		client: client,
+		log:    log,
 	}
 	go awsClient.startTokenRefresh()
 	return awsClient
