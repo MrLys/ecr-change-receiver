@@ -109,6 +109,7 @@ func (iw *ImageWatcher) initializeWatcherImages(config *Config, containers []typ
 		iw.watchedImages[key] = wi
 	}
 }
+
 func (i *ImageWatcher) pullAndStartImage(watchedImage Image, image string, imageTag string) {
 	slog.Info("UpdatedImage(container not started)", "image", image, "image-tag", imageTag)
 	// pull new image and start containerID
@@ -134,6 +135,7 @@ func (i *ImageWatcher) pullAndStartImage(watchedImage Image, image string, image
 	slog.Info("UpdatedImage(container started)", "image", image, "image-tag", imageTag, "container-id", watchedImage.containerID)
 	return
 }
+
 func (i *ImageWatcher) UpdateImage(image string, imageTag string) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()

@@ -32,7 +32,6 @@ func NewDockerClient(awsClient *aws.AwsClient) *DockerClient {
 }
 
 func (d *DockerClient) StopContainer(containerID string) bool {
-
 	err := d.apiClient.ContainerStop(context.Background(), containerID, container.StopOptions{})
 	if err != nil {
 		d.log.Error("StopContainer - Failed to stop container:", "error", err)
@@ -93,8 +92,8 @@ func (d *DockerClient) PullImage(refString string) bool {
 	d.log.Info("PullImage - Image pulled successfully", "image", refString)
 	return true
 }
-func (d *DockerClient) ListContainer() ([]types.Container, bool) {
 
+func (d *DockerClient) ListContainer() ([]types.Container, bool) {
 	containers, err := d.apiClient.ContainerList(context.Background(), container.ListOptions{All: true})
 	if err != nil {
 		d.log.Error("ListContainer - Failed to list containers:", "error", err)

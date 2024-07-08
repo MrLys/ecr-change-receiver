@@ -34,6 +34,7 @@ func CreateSecretsManagerClient(region string) *secretsmanager.Client {
 
 	return secretsmanager.NewFromConfig(cfg)
 }
+
 func CreateEcrClient() *ecr.Client {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
@@ -60,7 +61,6 @@ func (a *AwsClient) toAuthStr(token string) (string, error) {
 	})
 
 	return base64.URLEncoding.EncodeToString(jsonBytes), nil
-
 }
 
 func (a *AwsClient) getAuthorizationToken() (string, error) {
@@ -69,6 +69,7 @@ func (a *AwsClient) getAuthorizationToken() (string, error) {
 	}
 	return a.token, nil
 }
+
 func (a *AwsClient) UpdateToken() error {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
@@ -113,7 +114,6 @@ func tokenFromAuthStr(authStr string) (string, string, error) {
 }
 
 func (a *AwsClient) startTokenRefresh() {
-
 	err := a.UpdateToken()
 	if err != nil {
 		a.log.Error("Failed to refresh authorization token", err.Error(), "\n")
